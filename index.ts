@@ -13,7 +13,6 @@ export type Activity = {
     name: string
 };
 
-// "X-Request-ID": "9822b60ce5bf38749db6",    
 function randomRequestId(): string {
     const keymap = "abcdefghijklmnopqrstuvwxyz1234567890";
 
@@ -45,7 +44,7 @@ if (!config.activities || config.activities.length < 3) {
 
     config.activities = [];
     while (config.activities.length < 3) {
-        const activityId = parseInt(prompt("activity id?") ?? "");
+        const activityId = parseInt(prompt("activity id?") ?? "", 10);
         if (isNaN(activityId)) {
             console.log("invalid activity id");
             continue;
@@ -64,23 +63,26 @@ if (!config.activities || config.activities.length < 3) {
 
 console.log("activities:");
 
-let n = 0;
+let n = 1;
 for (const { name, id } of config.activities) {
-    console.log(`[${n + 1}]: ${name}: ${id}`);
+    console.log(`[${n}]: ${name}: ${id}`);
     n++;
 }
 
-const activityIdx = parseInt(prompt("activity? (number)") ?? "");
+const activityIdx = parseInt(prompt("activity? (number)") ?? "", 10);
 
 // 1 indexed
-if (activityIdx < 1 || activityIdx > config.activities.length) {
+if (isNaN(activityIdx) || activityIdx < 1 || activityIdx > config.activities.length) {
     throw new RangeError("invalid activity id");
 }
 
 const activityId = config.activities[activityIdx - 1]!.id;
 
-const rawStartDate = prompt("\nstart date: (d/m/y)")!.split("/").map((e) => parseInt(e));
+const rawStartDate = prompt("\nstart date: (d/m/y)")!.split("/").map((e) => parseInt(e, 10));
 let startDate = new Date(rawStartDate[2]!, rawStartDate[1]! - 1, rawStartDate[0]!);
+if (isNaN(startDate.getTime())) {
+    throw new RangeError("invalid start date");
+}
 console.log(startDate.toDateString());
 
 const randomizeInterval = (prompt("randomize days? (Y/n) ") ?? "y").toLowerCase() == "y";
@@ -97,8 +99,7 @@ while (true) {
         // how many more days before it's the week after
         const maxDays = minDays + 6;
     
-        let randomDay = Math.round(Math.random() * maxDays);
-        randomDay = Math.max(randomDay, minDays);
+        const randomDay = Math.floor(Math.random() * 7) + minDays;
         days = randomDay;
 
         console.log(`+${days} (min ${minDays} max ${maxDays})`);
