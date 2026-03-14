@@ -1,6 +1,6 @@
 # ayp
 
-more conveniently add reflections to <https://www.onlinerecordbook.org/fo/>
+more conveniently add logs to <https://www.onlinerecordbook.org/>
 
 ## usage
 
