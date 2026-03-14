@@ -1,3 +1,18 @@
+import { addDays, formatDate } from "date-fns";
+
+export type Config = {
+    activities: Activity[] | null,
+    auth: string,
+    awardId: string,
+    userAgent: string,
+    cookie: string,
+};
+
+export type Activity = {
+    id: number,
+    name: string
+};
+
 // "X-Request-ID": "9822b60ce5bf38749db6",    
 function randomRequestId(): string {
     const keymap = "abcdefghijklmnopqrstuvwxyz1234567890";
@@ -9,14 +24,6 @@ function randomRequestId(): string {
 
     return id;
 }
-
-export type Config = {
-    activityId: string | null,
-    auth: string,
-    awardId: string,
-    userAgent: string,
-    cookie: string,
-};
 
 const config: Config = JSON.parse(await Bun.file("ayp.json").text());
 
@@ -33,42 +40,78 @@ let headers = new Headers([
     ["Cookie", config.cookie]
 ]);
 
-let activityId = "";
-if (config.activityId) {
-    activityId = prompt("activity id?", config.activityId ?? "")!;
-} else {
-    activityId = prompt("activityId?")!;
+if (!config.activities || config.activities.length < 3) {
+    console.log("no activities saved, input them now (click on each activity and get the id from the url (eg, https://www.onlinerecordbook.org/fo/dashboard/awards/.../activity/<ACTIVITY_ID>/logs)\n");
+
+    config.activities = [];
+    while (config.activities.length < 3) {
+        const activityId = parseInt(prompt("activity id?") ?? "");
+        if (isNaN(activityId)) {
+            console.log("invalid activity id");
+            continue;
+        }
+
+        const activityName = prompt("activity name?") ?? "";
+
+        console.log();
+
+        config.activities.push({ id: activityId, name: activityName });
+    }
+
+    console.clear();
+    await Bun.write("ayp.json", JSON.stringify(config, null, 4));
 }
 
-if (!parseInt(activityId)) {
-    console.error("not a number!")
-    process.exit(1)
+console.log("activities:");
+
+let n = 0;
+for (const { name, id } of config.activities) {
+    console.log(`[${n + 1}]: ${name}: ${id}`);
+    n++;
 }
 
-config.activityId = activityId;
-await Bun.write("ayp.json", JSON.stringify(config, null, 4))
+const activityIdx = parseInt(prompt("activity? (number)") ?? "");
 
-const rawStartDate = prompt("start date: (d/m/y)")!.split("/").map((e) => parseInt(e));
-let startDate = new Date(rawStartDate[2]!, rawStartDate[1]! - 1, rawStartDate[0]! + 1).getTime();
+// 1 indexed
+if (activityIdx < 1 || activityIdx > config.activities.length) {
+    throw new RangeError("invalid activity id");
+}
 
-const randomizeInterval = (prompt("randomize days? (y/N) ") ?? "").toLowerCase() == "y";
-const randomizeDuration = (prompt("randomize duration? (y/N)") ?? "").toLowerCase() == "y";
+const activityId = config.activities[activityIdx - 1]!.id;
+
+const rawStartDate = prompt("\nstart date: (d/m/y)")!.split("/").map((e) => parseInt(e));
+let startDate = new Date(rawStartDate[2]!, rawStartDate[1]! - 1, rawStartDate[0]!);
+console.log(startDate.toDateString());
+
+const randomizeInterval = (prompt("randomize days? (Y/n) ") ?? "y").toLowerCase() == "y";
+const randomizeDuration = (prompt("randomize duration? (Y/n)") ?? "y").toLowerCase() == "y";
 
 console.log()
 
 while (true) {
-    // the minimum amount of days to get to next week
-    const minDays = 7 - new Date(startDate).getDay() + 1;
-    const randomDay = Math.round(Math.random() * 7) * Number(randomizeInterval);
-    console.log(`+${randomDay} (min ${minDays})`);
-    startDate += 60 * 60 * 24 * Math.min(randomDay, minDays) * 1000; // week in milliseconds
+    let days = 7;
 
-    const dateString = new Date(startDate).toISOString().replace(".000Z", "");
+    if (randomizeInterval) {
+        // how many more days till the next week
+        const minDays = 7 - new Date(startDate).getDay() + 1;
+        // how many more days before it's the week after
+        const maxDays = minDays + 6;
+    
+        let randomDay = Math.round(Math.random() * maxDays);
+        randomDay = Math.max(randomDay, minDays);
+        days = randomDay;
 
-    console.log(dateString);
+        console.log(`+${days} (min ${minDays} max ${maxDays})`);
+    }
+
+    startDate = addDays(startDate, days);
+
+    const dateString = formatDate(startDate, "yyyy-MM-dd") + "T12:00:00"; // they don't use the correct format
+
+    console.log(`${dateString} (${formatDate(startDate, "EEEE")})`);
 
     const body = {
-        "description": prompt("description: ") ?? "",
+        "description": prompt("description:") ?? "",
         "date": dateString,
         "duration": (Number(randomizeDuration) * Math.round(Math.random()) + 1) * 3600, // either 1 or 2 hours if randomized
         "activity": {
