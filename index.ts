@@ -88,23 +88,35 @@ const randomizeDuration = (prompt("randomize duration? (Y/n)") ?? "y").toLowerCa
 
 console.log()
 
+let fail = false;
 while (true) {
     let days = 7;
 
-    if (randomizeInterval) {
-        // how many more days till the next week
-        const minDays = 7 - new Date(startDate).getDay() + 1;
-        // how many more days before it's the week after
-        const maxDays = minDays + 6;
-    
-        let randomDay = Math.round(Math.random() * maxDays);
-        randomDay = Math.max(randomDay, minDays);
-        days = randomDay;
+    if (!fail) {
+        if (randomizeInterval) {
+            // how many more days till the next week
+            const minDays = 7 - new Date(startDate).getDay() + 1;
+            // how many more days before it's the week after
+            let maxDays = minDays + 6;
 
-        console.log(`+${days} (min ${minDays} max ${maxDays})`);
+            {
+                const now = new Date();
+                const added = addDays(startDate, maxDays);
+                if (added > now) {
+                    const millis = added.getTime() - now.getTime();
+                    maxDays = Math.round(millis / 60 / 60 / 24 / 1000);
+                }
+            }
+
+            let randomDay = Math.round(Math.random() * maxDays);
+            randomDay = Math.max(randomDay, minDays);
+            days = randomDay;
+
+            console.log(`+${days} (min ${minDays} max ${maxDays})`);
+        }
+
+        startDate = addDays(startDate, days);
     }
-
-    startDate = addDays(startDate, days);
 
     const dateString = formatDate(startDate, "yyyy-MM-dd") + "T12:00:00"; // they don't use the correct format
 
@@ -130,8 +142,10 @@ while (true) {
     });
 
     if (!request.ok) {
-        console.log(`${request.statusText}: ${await request.text()}\n`)
+        fail = true;
+        console.error(`${request.statusText}: ${await request.text()}\n`)
     } else {
+        fail = false;
         console.log();
     }
 }
